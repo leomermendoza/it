@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrackED — Attendance Kiosk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#f4f7fa;
+  --surface:#ffffff;
+  --cyan:#0057a8;
+  --blue:#0047a3;
+  --green:#087f3f;
+  --orange:#d66a00;
+  --red:#c62828;
+  --purple:#6a3fb5;
+  --text:#17212b;
+  --muted:#4d5b66;
+  --glow-c:rgba(0,87,168,0.18);
+  --glow-b:rgba(0,71,163,0.12);
+}
+
+*,*::before,*::after{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  background:var(--bg);
+  font-family:'DM Sans',system-ui,sans-serif;
+  height:100vh;
+  width:100vw;
+  overflow:hidden;
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,87,168,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,87,168,.055) 1px,transparent 1px);
+  background-size:50px 50px;
+  animation:gridDrift 25s linear infinite;
+  pointer-events:none;
+  z-index:0;
+}
+
+@keyframes gridDrift{
+  from{background-position:0 0}
+  to{background-position:50px 50px}
+}
+
+body::after{
+  content:'';
+  position:fixed;
+  top:-300px;
+  left:50%;
+  transform:translateX(-50%);
+  width:900px;
+  height:500px;
+  background:radial-gradient(
+    ellipse,
+    rgba(0,87,168,.10) 0%,
+    transparent 70%
+  );
+  pointer-events:none;
+  z-index:0;
+}
+
+.corner{
+  position:fixed;
+  width:60px;
+  height:60px;
+  border-color:rgba(0,87,168,.40);
+  border-style:solid;
+  z-index:1;
+}
+
+.corner-tl{top:16px;left:16px;border-width:2px 0 0 2px}
+.corner-tr{top:16px;right:16px;border-width:2px 2px 0 0}
+.corner-bl{bottom:16px;left:16px;border-width:0 0 2px 2px}
+.corner-br{bottom:16px;right:16px;border-width:0 2px 2px 0}
+
+.header{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:10;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 36px;
+  background:linear-gradient(
+    180deg,
+    rgba(255,255,255,.98) 60%,
+    rgba(255,255,255,0) 100%
+  );
+  border-bottom:1px solid rgba(0,87,168,.15);
+}
+
+.logo-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.logo-badge{
+  width:40px;
+  height:40px;
+  border:1.5px solid var(--cyan);
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Orbitron',monospace;
+  font-size:.65rem;
+  font-weight:900;
+  color:var(--cyan);
+  letter-spacing:1px;
+  box-shadow:0 0 14px var(--glow-c);
+}
+
+.school-label{
+  font-size:.9rem;
+  font-weight:600;
+  color:rgba(23,33,43,.78);
+  letter-spacing:.5px;
+}
+
+.clock-col{text-align:right}
+
+.clock{
+  font-family:'Orbitron',monospace;
+  font-size:2.45rem;
+  font-weight:900;
+  color:var(--cyan);
+  letter-spacing:4px;
+  line-height:1;
+}
+
+.date-str{
+  font-size:.68rem;
+  color:#34424d;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-top:3px;
+}
+
+.offline-badge{
+  position:fixed;
+  top:14px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(198,40,40,.12);
+  border:1px solid var(--red);
+  color:var(--red);
+  font-size:.65rem;
+  padding:3px 14px;
+  border-radius:20px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  display:none;
+  z-index:20;
+  animation:blink 2s ease infinite;
+}
+
+@keyframes blink{
+  0%,100%{opacity:1}
+  50%{opacity:.45}
+}
+
+.main{
+  position:relative;
+  z-index:5;
+  width:100vw;
+  min-height:calc(100vh - 70px);
+  margin-top:70px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+#idle-box{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:20px;
+}
+
+.pulse-wrap{
+  position:relative;
+  width:190px;
+  height:190px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.pulse-ring{
+  position:absolute;
+  border-radius:50%;
+  border:1.5px solid var(--cyan);
+}
+
+.pulse-ring:nth-child(1){
+  inset:0;
+  opacity:0;
+  animation:pulseOut 2.4s ease-out infinite;
+}
+
+.pulse-ring:nth-child(2){
+  inset:18px;
+  opacity:0;
+  animation:pulseOut 2.4s ease-out infinite .6s;
+}
+
+.pulse-ring:nth-child(3){
+  inset:36px;
+  opacity:0;
+  animation:pulseOut 2.4s ease-out infinite 1.2s;
+}
+
+@keyframes pulseOut{
+  0%{transform:scale(.7);opacity:.7}
+  100%{transform:scale(1.3);opacity:0}
+}
+
+.scan-core{
+  position:relative;
+  z-index:2;
+  width:108px;
+  height:108px;
+  border-radius:50%;
+  background:radial-gradient(
+    circle,
+    rgba(0,87,168,.14) 0%,
+    rgba(0,87,168,.06) 60%,
+    transparent 100%
+  );
+  border:2px solid var(--cyan);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:
+    0 0 22px var(--glow-c),
+    inset 0 0 18px rgba(0,87,168,.06);
+  animation:floatBob 3.5s ease-in-out infinite;
+}
+
+.scan-core img{
+  width:70px;
+  height:70px;
+  object-fit:contain;
+  border-radius:50%;
+}
+
+@keyframes floatBob{
+  0%,100%{transform:translateY(0) scale(1)}
+  50%{transform:translateY(-7px) scale(1.02)}
+}
+
+.scan-heading{
+  font-family:'Orbitron',monospace;
+  font-size:1.8rem;
+  font-weight:900;
+  color:var(--cyan);
+  letter-spacing:5px;
+  text-transform:uppercase;
+}
+
+.scan-hint{
+  color:#263640;
+  font-size:.95rem;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+}
+
+.scan-bar{
+  width:260px;
+  height:4px;
+  background:rgba(0,87,168,.16);
+  border-radius:2px;
+  overflow:hidden;
+  margin-top:4px;
+}
+
+.scan-bar-fill{
+  width:45%;
+  height:100%;
+  background:linear-gradient(
+    90deg,
+    transparent,
+    var(--cyan),
+    transparent
+  );
+  animation:barSlide 1.8s ease-in-out infinite;
+}
+
+@keyframes barSlide{
+  0%{transform:translateX(-150%)}
+  100%{transform:translateX(350%)}
+}
+
+/* STUDENT VERIFICATION CARD */
+
+#student-card{
+  display:none;
+  width:540px;
+  background:linear-gradient(145deg,#fff 0%,#eef5fb 100%);
+  border-radius:24px;
+  padding:30px 40px 28px;
+  text-align:center;
+  border:1px solid rgba(0,87,168,.30);
+  box-shadow:
+    0 0 0 1px rgba(0,87,168,.06),
+    0 8px 60px rgba(0,87,168,.10),
+    0 24px 80px rgba(0,71,163,.08);
+  animation:cardPop .38s cubic-bezier(.34,1.56,.64,1);
+  position:relative;
+  overflow:hidden;
+}
+
+#student-card::before{
+  content:'';
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  height:2px;
+  background:linear-gradient(
+    90deg,
+    transparent 5%,
+    var(--cyan) 50%,
+    transparent 95%
+  );
+}
+
+@keyframes cardPop{
+  from{
+    transform:scale(.82) translateY(18px);
+    opacity:0;
+  }
+  to{
+    transform:scale(1) translateY(0);
+    opacity:1;
+  }
+}
+
+.verify-title{
+  font-family:'Orbitron',monospace;
+  color:var(--cyan);
+  font-size:1rem;
+  font-weight:900;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  margin-bottom:18px;
+}
+
+.photo-wrap{
+  position:relative;
+  width:110px;
+  height:110px;
+  margin:0 auto 15px;
+}
+
+.student-photo{
+  width:110px;
+  height:110px;
+  border-radius:50%;
+  object-fit:cover;
+  border:2.5px solid var(--cyan);
+  box-shadow:0 0 28px var(--glow-c);
+  display:block;
+}
+
+.orbit-ring{
+  position:absolute;
+  inset:-9px;
+  border-radius:50%;
+  border:1px dashed rgba(0,87,168,.25);
+  animation:spin 10s linear infinite;
+}
+
+.orbit-dot{
+  position:absolute;
+  top:-3px;
+  left:50%;
+  width:6px;
+  height:6px;
+  background:var(--cyan);
+  border-radius:50%;
+  transform:translateX(-50%);
+}
+
+@keyframes spin{
+  from{transform:rotate(0)}
+  to{transform:rotate(360deg)}
+}
+
+.student-name{
+  font-family:'Orbitron',monospace;
+  font-size:1.3rem;
+  font-weight:900;
+  color:#101820;
+  letter-spacing:1px;
+  margin-bottom:10px;
+}
+
+.chips{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:6px;
+}
+
+.chip{
+  background:rgba(0,87,168,.07);
+  border:1px solid rgba(0,87,168,.22);
+  color:#245b86;
+  font-size:.72rem;
+  padding:3px 12px;
+  border-radius:20px;
+  letter-spacing:.5px;
+}
+
+.student-idno{
+  font-size:.72rem;
+  color:#34424d;
+  font-weight:600;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:12px;
+}
+
+.scan-ts{
+  font-size:.68rem;
+  color:#34424d;
+  font-weight:600;
+  letter-spacing:2px;
+  margin-top:10px;
+}
+
+.verify-question{
+  margin:16px 0 12px;
+  color:#263640;
+  font-size:.85rem;
+  font-weight:700;
+}
+
+.verify-buttons{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  margin-top:8px;
+}
+
+.verify-btn{
+  border:0;
+  border-radius:12px;
+  padding:13px 30px;
+  font-family:'Orbitron',monospace;
+  font-size:.82rem;
+  font-weight:900;
+  letter-spacing:1.5px;
+  cursor:pointer;
+  transition:.18s ease;
+  min-width:150px;
+}
+
+.verify-btn:active{
+  transform:scale(.95);
+}
+
+.accept-btn{
+  background:#087f3f;
+  color:#fff;
+  box-shadow:0 5px 18px rgba(8,127,63,.25);
+}
+
+.accept-btn:hover{
+  background:#066b35;
+  transform:translateY(-2px);
+}
+
+.reject-btn{
+  background:#c62828;
+  color:#fff;
+  box-shadow:0 5px 18px rgba(198,40,40,.22);
+}
+
+.reject-btn:hover{
+  background:#a91f1f;
+  transform:translateY(-2px);
+}
+
+.sms-note{
+  font-size:.68rem;
+  color:var(--green);
+  margin-top:8px;
+  letter-spacing:1px;
+  opacity:.8;
+  display:none;
+}
+
+/* REJECT PANEL */
+
+#reject-panel{
+  display:none;
+  margin-top:16px;
+  padding:16px;
+  border-radius:14px;
+  background:rgba(198,40,40,.055);
+  border:1px solid rgba(198,40,40,.20);
+}
+
+.reject-title{
+  font-family:'Orbitron',monospace;
+  font-size:.78rem;
+  font-weight:900;
+  color:var(--red);
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  margin-bottom:12px;
+}
+
+.reason-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.reason-btn{
+  border:1px solid rgba(198,40,40,.25);
+  background:#fff;
+  color:#7b2424;
+  border-radius:9px;
+  padding:9px 7px;
+  font-size:.72rem;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.reason-btn:hover{
+  background:#fff2f2;
+}
+
+.cancel-reject{
+  margin-top:10px;
+  border:0;
+  background:transparent;
+  color:#52616b;
+  font-size:.72rem;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* ERROR */
+
+#error-card{
+  display:none;
+  text-align:center;
+  animation:cardPop .38s cubic-bezier(.34,1.56,.64,1);
+}
+
+.err-ring{
+  width:110px;
+  height:110px;
+  border-radius:50%;
+  background:rgba(198,40,40,.07);
+  border:2px solid var(--red);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:3.2rem;
+  margin:0 auto 20px;
+  box-shadow:0 0 36px rgba(198,40,40,.20);
+  animation:shakeIt .45s ease;
+}
+
+@keyframes shakeIt{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-7px)}
+  40%{transform:translateX(7px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+}
+
+.err-title{
+  font-family:'Orbitron',monospace;
+  font-size:1.3rem;
+  font-weight:700;
+  color:var(--red);
+  letter-spacing:3px;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+
+.err-sub{
+  font-size:.85rem;
+  color:var(--muted);
+  letter-spacing:1px;
+}
+
+.footer{
+  position:fixed;
+  bottom:14px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  z-index:5;
+  font-family:'Orbitron',monospace;
+  font-size:.6rem;
+  color:#40515e;
+  font-weight:700;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+.fdot{
+  width:3px;
+  height:3px;
+  border-radius:50%;
+  background:rgba(0,87,168,.3);
+  animation:blink 2.4s ease infinite;
+}
+
+#rfid-capture{
+  position:fixed;
+  opacity:0;
+  width:1px;
+  height:1px;
+  top:0;
+  left:0;
+  pointer-events:none;
+}
+
+
+/* ===== FINAL FULL-SCREEN DIRECT-SCAN MODE ===== */
+.logo-badge{overflow:hidden;background:#fff!important;padding:3px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+.logo-badge img{width:100%;height:100%;object-fit:contain;border-radius:50%}
+.header{height:86px;padding:0 3.2vw}
+.school-label{font-size:clamp(.85rem,1.45vw,1.25rem);font-weight:800}
+.clock{font-size:clamp(1.8rem,3vw,3rem)}
+.main{margin-top:86px;min-height:calc(100vh - 86px);padding:1.2vh 2vw 4vh}
+#student-card{
+  width:min(94vw,1500px);
+  min-height:calc(100vh - 135px);
+  border-radius:28px;
+  padding:clamp(24px,3.2vh,46px) clamp(28px,5vw,86px);
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.verify-title{font-size:clamp(.9rem,1.4vw,1.35rem);margin-bottom:clamp(14px,2vh,28px)}
+.photo-wrap{width:clamp(210px,27vh,330px);height:clamp(210px,27vh,330px);margin:0 auto clamp(18px,2.2vh,32px)}
+.student-photo{width:100%;height:100%;border-width:4px;box-shadow:0 0 44px var(--glow-c)}
+.student-name{font-size:clamp(2rem,4.4vw,4.5rem);line-height:1.05;margin-bottom:clamp(14px,2vh,24px);max-width:92%;overflow-wrap:anywhere}
+.chips{gap:14px;margin-bottom:clamp(12px,1.5vh,20px)}
+.chip{font-size:clamp(.95rem,1.7vw,1.5rem);padding:9px 22px;border-radius:999px;font-weight:800}
+.student-idno{font-size:clamp(1rem,1.7vw,1.55rem);margin-bottom:clamp(10px,1.5vh,18px);font-weight:800}
+.scan-ts{font-size:clamp(.9rem,1.4vw,1.3rem);margin-top:8px;font-weight:800}
+.verify-question{font-size:clamp(1.2rem,2.3vw,2.2rem)!important;margin:clamp(16px,2vh,26px) 0 8px;font-weight:900!important;letter-spacing:1px}
+.verify-buttons,#reject-panel{display:none!important}
+.auto-scan-note{margin-top:8px;font-size:clamp(.72rem,1vw,1rem);color:#5e7180;font-weight:700;letter-spacing:.5px}
+.sms-note{font-size:clamp(.78rem,1vw,1rem);margin-top:12px;font-weight:700}
+.early-exit-panel{display:none;width:min(900px,90%);margin-top:20px;padding:18px;border:1px solid rgba(198,40,40,.25);border-radius:18px;background:rgba(255,245,245,.88)}
+.early-exit-title{font-family:'Orbitron',monospace;font-size:clamp(.85rem,1.2vw,1.1rem);font-weight:900;color:#a91f1f;margin-bottom:12px}
+.early-exit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.early-exit-grid button{border:1px solid rgba(198,40,40,.25);background:#fff;color:#7f1d1d;border-radius:12px;padding:13px 16px;font-weight:800;font-size:.95rem;cursor:pointer}
+.early-exit-grid button:hover{background:#fff1f1}
+#error-card{position:fixed;inset:86px 0 0;z-index:30;background:rgba(247,251,255,.97);display:none;align-items:center;justify-content:center;flex-direction:column}
+.footer{bottom:8px}
+@media(max-height:720px){.photo-wrap{width:190px;height:190px}.student-name{font-size:2.2rem}#student-card{padding-top:18px;padding-bottom:28px}}
+@media(max-width:760px){.early-exit-grid{grid-template-columns:1fr}.header{padding:0 18px}.school-label{max-width:55vw}}
+
+</style>
+</head>
+
+<body>
+
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+
+<div class="offline-badge" id="offline-badge">
+  ⚠ OFFLINE MODE
+</div>
+
+<header class="header">
+  <div class="logo-row">
+    <div class="logo-badge"><img src="logo.jpg" alt="TrackED"></div>
+    <span class="school-label" id="school-name">
+      TrackED Attendance System
+    </span>
+  </div>
+
+  <div class="clock-col">
+    <div class="clock" id="clock">00:00:00</div>
+    <div class="date-str" id="date-str">—</div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- IDLE -->
+  <div id="idle-box">
+
+    <div class="pulse-wrap">
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring"></div>
+
+      <div class="scan-core">
+        <img src="logo.jpg" alt="">
+      </div>
+    </div>
+
+    <div class="scan-heading">
+      Scan RFID
+    </div>
+
+    <div class="scan-hint">
+      I-tap ang iyong ID card sa scanner
+    </div>
+
+    <div class="scan-bar">
+      <div class="scan-bar-fill"></div>
+    </div>
+
+  </div>
+
+  <!-- STUDENT VERIFICATION -->
+  <div id="student-card">
+
+    <div class="verify-title">
+      LAST VERIFIED MOVEMENT
+    </div>
+
+    <div class="photo-wrap">
+      <img id="student-photo" class="student-photo" src="" alt="Student">
+      <div class="orbit-ring">
+        <div class="orbit-dot"></div>
+      </div>
+    </div>
+
+    <div class="student-name" id="student-name">—</div>
+
+    <div class="chips">
+      <span class="chip" id="s-course">—</span>
+      <span class="chip" id="s-section">—</span>
+    </div>
+
+    <div class="student-idno" id="s-idno">
+      —
+    </div>
+
+    <div class="scan-ts" id="scan-ts"></div>
+
+    <div class="verify-question" id="verify-question">
+      Tama ba ang impormasyon ng estudyanteng ito?
+    </div>
+
+    <div class="auto-scan-note" id="auto-scan-note">
+      Automatic scan recording • No guard confirmation required
+    </div>
+    <div id="verify-buttons" style="display:none!important"></div>
+    <div id="reject-panel" style="display:none!important"></div>
+    <button id="accept-btn" type="button" style="display:none!important"></button>
+    <button id="reject-btn" type="button" style="display:none!important"></button>
+
+    <div id="early-exit-panel" class="early-exit-panel">
+      <div class="early-exit-title">High School Early Exit — Select Reason</div>
+      <div class="early-exit-grid">
+        <button type="button" onclick="acceptStudent('Parent / Guardian Request')">Parent / Guardian Request</button>
+        <button type="button" onclick="acceptStudent('Medical / Health Concern')">Medical / Health Concern</button>
+        <button type="button" onclick="acceptStudent('School Activity / Official Business')">School Activity / Official Business</button>
+        <button type="button" onclick="acceptStudent('Emergency')">Emergency</button>
+        <button type="button" onclick="acceptStudent('Other Authorized Reason')">Other Authorized Reason</button>
+      </div>
+    </div>
+
+    <div class="sms-note" id="sms-note">
+      📱 SMS notification sent to parent
+    </div>
+
+  </div>
+
+  <!-- ERROR -->
+  <div id="error-card">
+
+    <div class="err-ring" id="err-icon">❓</div>
+
+    <div class="err-title" id="err-title">
+      Unknown Card
+    </div>
+
+    <div class="err-sub" id="err-sub">
+      Hindi registered ang RFID card na ito.
+    </div>
+
+  </div>
+
+</main>
+
+<footer class="footer">
+  <div class="fdot"></div>
+  <span>TrackED</span>
+  <div class="fdot"></div>
+  <span>RFID Attendance System</span>
+  <div class="fdot"></div>
+</footer>
+
+<input type="text" id="rfid-capture" autocomplete="off">
+
+<script>
+const BASE = window.location.origin;
+const API = BASE + '/tracked/api/scan.php';
+const KEY = 'tracked_secret_key';
+
+const SHOW_SEC = 2; // errors only; successful student stays until the next scan
+
+let currentStudent = null;
+let currentRFID = '';
+let currentScanType = '';
+let busy = false;
+let buf = '';
+let tmr = null;
+
+
+/* CLOCK */
+function tick(){
+
+  const n = new Date();
+
+  document.getElementById('clock').textContent =
+    n.toLocaleTimeString('en-US',{
+      hour12:false
+    });
+
+  document.getElementById('date-str').textContent =
+    n.toLocaleDateString('en-US',{
+      weekday:'long',
+      month:'long',
+      day:'numeric',
+      year:'numeric'
+    }).toUpperCase();
+}
+
+setInterval(tick,1000);
+tick();
+
+
+/* SCHOOL NAME */
+fetch(BASE + '/tracked/api/config.php')
+.then(r => r.json())
+.then(d => {
+
+  if(d.school_name){
+    document.getElementById('school-name').textContent =
+      d.school_name;
+  }
+
+})
+.catch(()=>{});
+
+
+/* RFID INPUT */
+const inp = document.getElementById('rfid-capture');
+
+document.addEventListener('click',()=>{
+  inp.focus();
+});
+
+document.addEventListener('keydown',e=>{
+  if(document.activeElement !== inp){
+    inp.focus();
+  }
+});
+
+inp.focus();
+
+
+inp.addEventListener('keydown',function(e){
+
+  if(busy){
+    e.preventDefault();
+    return;
+  }
+
+  if(e.key === 'Enter'){
+
+    const uid = buf.trim();
+
+    buf = '';
+    clearTimeout(tmr);
+
+    if(uid.length >= 4){
+      doScan(uid);
+    }
+
+  }else if(e.key.length === 1){
+
+    buf += e.key;
+
+    clearTimeout(tmr);
+
+    tmr = setTimeout(()=>{
+
+      if(buf.length >= 4){
+        doScan(buf.trim());
+      }
+
+      buf = '';
+
+    },300);
+  }
+
+});
+
+
+/* INITIAL SCAN */
+function doScan(uid){
+  if(busy) return;
+  busy = true;
+  currentRFID = uid;
+
+  // Keep the previous successful student visible while the next card is being processed.
+  const q=document.getElementById('verify-question');
+  if(document.getElementById('student-card').style.display!=='none' && q){
+    q.textContent='PROCESSING NEW SCAN…';
+    q.style.color='var(--cyan)';
+  }
+  hide('error-card');
+
+  fetch(API,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({rfid_uid:uid,scanner_key:KEY})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    document.getElementById('offline-badge').style.display=data.offline?'block':'none';
+    const st=data.status;
+
+    if(st==='verify' || st==='verification_required'){
+      currentStudent=data.student||null;
+      currentScanType=data.scan_type||'IN';
+      showStudentForVerification(data);
+
+      // High School early-exit authorization remains a policy step, but there
+      // is no ACCEPT/REJECT verification flow anymore.
+      if(data.requires_authorization || data.requires_reason || data.movement_context==='EARLY_EXIT'){
+        document.getElementById('early-exit-panel').style.display='block';
+        const q=document.getElementById('verify-question');
+        q.textContent='EARLY EXIT AUTHORIZATION REQUIRED';
+        q.style.color='var(--red)';
+        return;
+      }
+
+      acceptStudent();
+      return;
+    }
+
+    // Compatibility with direct-commit scan.php builds.
+    if(st==='ok' || st==='accepted'){
+      currentStudent=data.student||currentStudent;
+      currentScanType=data.scan_type||currentScanType||'IN';
+      showStudent(data);
+      markRecorded(data);
+      releaseScannerAfterSave();
+      return;
+    }
+
+    if(st==='duplicate'){
+      showAlreadyScanned(data);
+      releaseScannerAfterSave();
+      return;
+    }
+
+    const errors={
+      unknown:['Unknown Card','❓','Hindi registered ang RFID card na ito. I-report sa SPMO kung kailangan.'],
+      outside_window:['Outside Event Window','⏰',data.message||'Hindi pasok sa active event attendance window.'],
+      no_timein:['No Time-In','⚠️',data.message||'Walang valid Time-In record.'],
+      no_schedule:['No Schedule','📅',data.message||'Walang applicable schedule.'],
+      locked:['Scan Access Locked','🔒',data.message||'Please proceed to the SPMO Office.']
+    };
+    const e=errors[st]||['Scan Error','❌',data.message||'Hindi na-process ang RFID scan.'];
+    showTransientError(...e);
+  })
+  .catch(()=>showTransientError('Connection Error','📡','Hindi maabot ang scanner service.'));
+}
+
+function releaseScannerAfterSave(){
+  setTimeout(()=>{
+    busy=false;
+    buf='';
+    inp.value='';
+    inp.focus();
+  },1000);
+}
+
+function showTransientError(title,icon,sub){
+  showError(title,icon,sub);
+  setTimeout(()=>{
+    hide('error-card');
+    if(currentStudent){
+      show('student-card');
+    }else{
+      show('idle-box');
+    }
+    busy=false;
+    buf='';
+    inp.value='';
+    inp.focus();
+  },SHOW_SEC*1000);
+}
+
+/* SHOW STUDENT FOR GUARD VERIFICATION */
+function showStudentForVerification(data){
+
+  const s = data.student || {};
+
+  document.getElementById('student-name').textContent =
+    s.full_name || '—';
+
+  document.getElementById('s-course').textContent =
+    (s.course || '') + ' ' + (s.year_level || '');
+
+  document.getElementById('s-section').textContent =
+    'Sec. ' + (s.section || 'N/A');
+
+  document.getElementById('s-idno').textContent =
+    'Student No. ' + (s.student_id_no || 'N/A');
+
+  const scanLabels = {
+    IN: 'TIME IN',
+    LUNCH_OUT: 'LUNCH OUT',
+    LUNCH_IN: 'LUNCH IN',
+    OUT: 'FINAL TIME OUT'
+  };
+
+  document.getElementById('scan-ts').textContent =
+    (scanLabels[currentScanType] || currentScanType || 'SCAN') +
+    ' — ' +
+    new Date().toLocaleTimeString(
+      'en-US',
+      {
+        hour:'2-digit',
+        minute:'2-digit',
+        second:'2-digit'
+      }
+    );
+
+  const photo =
+    document.getElementById('student-photo');
+
+  photo.src = '';
+
+  if(s.photo_path){
+
+    const img = new Image();
+
+    img.onload = ()=>{
+      photo.src = img.src;
+    };
+
+    img.onerror = ()=>{
+      photo.src =
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='38' r='26' fill='%230057a8' opacity='.3'/%3E%3Cellipse cx='50' cy='92' rx='36' ry='22' fill='%230057a8' opacity='.3'/%3E%3C/svg%3E";
+    };
+
+    img.src = s.photo_path;
+  }
+
+  document.getElementById('early-exit-panel').style.display='none';
+  document.getElementById('verify-question').style.display='block';
+  document.getElementById('verify-question').textContent='SAVING VERIFIED MOVEMENT…';
+  document.getElementById('verify-question').style.color='var(--cyan)';
+
+  document.getElementById('sms-note').style.display =
+    'none';
+
+  show('student-card');
+}
+
+
+/* ACCEPT */
+function acceptStudent(authorizationReason=''){
+  if(!currentRFID || !currentStudent){
+    busy=false;
+    return;
+  }
+  document.getElementById('early-exit-panel').style.display='none';
+  const q=document.getElementById('verify-question');
+  q.textContent='SAVING VERIFIED MOVEMENT…';
+  q.style.color='var(--cyan)';
+
+  fetch(API,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      action:'accept',
+      rfid_uid:currentRFID,
+      scanner_key:KEY,
+      student_id:currentStudent.id,
+      scan_type:currentScanType,
+      authorization_reason:authorizationReason
+    })
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.status==='ok' || data.status==='accepted'){
+      showAccepted(data);
+      releaseScannerAfterSave();
+    }else if(data.status==='authorization_required' || data.requires_authorization){
+      document.getElementById('early-exit-panel').style.display='block';
+      q.textContent='EARLY EXIT AUTHORIZATION REQUIRED';
+      q.style.color='var(--red)';
+    }else{
+      showTransientError('SAVE FAILED','❌',data.message||'Hindi na-save ang movement.');
+    }
+  })
+  .catch(()=>showTransientError('Connection Error','📡','Hindi ma-save ang movement.'));
+}
+
+/* ACCEPTED DISPLAY */
+function showAccepted(data){
+  markRecorded(data);
+}
+
+function markRecorded(data){
+  const labels={
+    IN:'✓ CAMPUS IN RECORDED',
+    OUT:'✓ CAMPUS OUT RECORDED',
+    LUNCH_OUT:'✓ EVENT LUNCH OUT RECORDED',
+    LUNCH_IN:'✓ EVENT LUNCH IN RECORDED'
+  };
+  const q=document.getElementById('verify-question');
+  q.textContent=labels[data.scan_type||currentScanType]||'✓ MOVEMENT RECORDED';
+  q.style.display='block';
+  q.style.color='var(--green)';
+  q.style.fontSize='';
+  document.getElementById('early-exit-panel').style.display='none';
+  document.getElementById('sms-note').style.display=data.sms_queued?'block':'none';
+  hide('idle-box');
+  show('student-card');
+}
+
+/* SHOW REJECT REASONS */
+function showRejectPanel(){
+
+  document.getElementById('verify-buttons').style.display =
+    'none';
+
+  document.getElementById('reject-panel').style.display =
+    'block';
+}
+
+
+/* CANCEL REJECT */
+function cancelReject(){
+
+  document.getElementById('reject-panel').style.display =
+    'none';
+
+  document.getElementById('verify-buttons').style.display =
+    'flex';
+}
+
+
+/* REJECT */
+function rejectStudent(reason){
+
+  if(!currentRFID || !currentStudent){
+    return;
+  }
+
+  disableVerificationButtons();
+
+  fetch(API,{
+
+    method:'POST',
+
+    headers:{
+      'Content-Type':'application/json'
+    },
+
+    body:JSON.stringify({
+
+      action:'reject',
+      rfid_uid:currentRFID,
+      scanner_key:KEY,
+      student_id:currentStudent.id,
+      scan_type:currentScanType,
+      rejection_reason:reason
+
+    })
+
+  })
+
+  .then(r=>r.json())
+
+  .then(data=>{
+
+    if(
+      data.status === 'rejected' ||
+      data.status === 'ok'
+    ){
+
+      document.getElementById('verify-question').textContent =
+        '✕ SCAN REJECTED';
+
+      document.getElementById('verify-question').style.color =
+        'var(--red)';
+
+      document.getElementById('verify-question').style.fontSize =
+        '1rem';
+
+      document.getElementById('reject-panel').style.display =
+        'none';
+
+      document.getElementById('verify-buttons').style.display =
+        'none';
+
+      setTimeout(resetKiosk,SHOW_SEC * 1000);
+
+    }else{
+
+      showError(
+        'REJECT FAILED',
+        '❌',
+        data.message || 'Hindi na-save ang rejected scan.'
+      );
+
+      setTimeout(resetKiosk,SHOW_SEC * 1000);
+    }
+
+  })
+
+  .catch(()=>{
+
+    showError(
+      'Connection Error',
+      '📡',
+      'Hindi maipadala ang rejection sa server.'
+    );
+
+    setTimeout(resetKiosk,SHOW_SEC * 1000);
+
+  });
+}
+
+
+/* DISABLE BUTTONS */
+function disableVerificationButtons(){}
+
+
+/* EXISTING SUCCESS DISPLAY */
+function showStudent(data){
+
+  const s = data.student || {};
+
+  const scanLabels = {
+    IN: 'TIME IN',
+    LUNCH_OUT: 'LUNCH OUT',
+    LUNCH_IN: 'LUNCH IN',
+    OUT: 'FINAL TIME OUT'
+  };
+
+  document.getElementById('student-name').textContent =
+    s.full_name || '—';
+
+  document.getElementById('s-course').textContent =
+    (s.course || '') + ' ' + (s.year_level || '');
+
+  document.getElementById('s-section').textContent =
+    'Sec. ' + (s.section || 'N/A');
+
+  document.getElementById('s-idno').textContent =
+    'Student No. ' + (s.student_id_no || 'N/A');
+
+  document.getElementById('scan-ts').textContent =
+    (scanLabels[data.scan_type] || data.scan_type || 'SCAN') +
+    ' — ' +
+    new Date().toLocaleTimeString(
+      'en-US',
+      {
+        hour:'2-digit',
+        minute:'2-digit',
+        second:'2-digit'
+      }
+    );
+
+  const photo =
+    document.getElementById('student-photo');
+
+  photo.src = '';
+
+  if(s.photo_path){
+
+    const img = new Image();
+
+    img.onload = ()=>{
+      photo.src = img.src;
+    };
+
+    img.onerror = ()=>{
+      photo.src =
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='38' r='26' fill='%230057a8' opacity='.3'/%3E%3Cellipse cx='50' cy='92' rx='36' ry='22' fill='%230057a8' opacity='.3'/%3E%3C/svg%3E";
+    };
+
+    img.src = s.photo_path;
+  }
+
+  document.getElementById('verify-question').style.display =
+    'none';
+
+  document.getElementById('verify-buttons').style.display =
+    'none';
+
+  document.getElementById('reject-panel').style.display =
+    'none';
+
+  document.getElementById('sms-note').style.display =
+    data.sms_queued ? 'block' : 'none';
+
+  show('student-card');
+}
+
+/* ERROR */
+
+function showAlreadyScanned(data){
+
+  const s = data.student || {};
+
+  document.getElementById('student-name').textContent =
+    s.full_name || '—';
+
+  document.getElementById('s-course').textContent =
+    (s.course || '') + ' ' + (s.year_level || '');
+
+  document.getElementById('s-section').textContent =
+    'Sec. ' + (s.section || 'N/A');
+
+  document.getElementById('s-idno').textContent =
+    'Student No. ' + (s.student_id_no || 'N/A');
+
+  const photo =
+    document.getElementById('student-photo');
+
+  if(s.photo_path){
+    photo.src = s.photo_path;
+  }
+
+  let eventLabel = '✓ ALREADY SCANNED';
+  let verifiedTime = '';
+
+  if(data.scan_type === 'IN'){
+
+    eventLabel = '✓ ALREADY TIME-IN';
+
+    verifiedTime =
+      data.scan_time ||
+      data.time_in ||
+      '';
+  }
+
+  else if(data.scan_type === 'LUNCH_OUT'){
+
+    eventLabel = '✓ ALREADY LUNCH OUT';
+
+    verifiedTime =
+      data.lunch_out ||
+      '';
+  }
+
+  else if(data.scan_type === 'LUNCH_IN'){
+
+    eventLabel = '✓ ALREADY LUNCH IN';
+
+    verifiedTime =
+      data.lunch_in ||
+      '';
+  }
+
+  else if(data.scan_type === 'OUT'){
+
+    eventLabel = '✓ ALREADY TIME-OUT';
+
+    verifiedTime =
+      data.time_out ||
+      '';
+  }
+
+  document.getElementById('verify-question').textContent =
+    eventLabel;
+
+  document.getElementById('verify-question').style.display =
+    'block';
+
+  document.getElementById('verify-question').style.color =
+    '#d66a00';
+
+  document.getElementById('verify-question').style.fontSize =
+    '1rem';
+
+  document.getElementById('verify-buttons').style.display =
+    'none';
+
+  document.getElementById('reject-panel').style.display =
+    'none';
+
+  document.getElementById('sms-note').style.display =
+    'none';
+
+  if(verifiedTime){
+
+    const d =
+      new Date(
+        verifiedTime.replace(' ', 'T')
+      );
+
+    let formatted =
+      verifiedTime;
+
+    if(!isNaN(d.getTime())){
+
+      formatted =
+        d.toLocaleTimeString(
+          'en-US',
+          {
+            hour:'2-digit',
+            minute:'2-digit',
+            second:'2-digit'
+          }
+        );
+    }
+
+    document.getElementById('scan-ts').textContent =
+      'VERIFIED AT — ' + formatted;
+
+  }else{
+
+    document.getElementById('scan-ts').textContent =
+      'ATTENDANCE ALREADY RECORDED';
+  }
+
+  hide('idle-box');
+  hide('error-card');
+  show('student-card');
+}
+
+function showError(title,icon,sub){
+
+  document.getElementById('err-icon').textContent =
+    icon;
+
+  document.getElementById('err-title').textContent =
+    title;
+
+  document.getElementById('err-sub').textContent =
+    sub;
+
+  show('error-card');
+}
+
+
+/* RESET */
+function resetKiosk(){
+
+  hide('student-card');
+  hide('error-card');
+
+  show('idle-box');
+
+  document.getElementById('student-photo').src = '';
+
+  document.getElementById('verify-question').textContent =
+    'Tama ba ang impormasyon ng estudyanteng ito?';
+
+  document.getElementById('verify-question').style.color =
+    '#263640';
+
+  document.getElementById('verify-question').style.fontSize =
+    '.85rem';
+
+  document.getElementById('verify-question').style.display =
+    'block';
+
+  document.getElementById('verify-buttons').style.display =
+    'flex';
+
+  document.getElementById('reject-panel').style.display =
+    'none';
+
+  document.getElementById('sms-note').style.display =
+    'none';
+
+  document.getElementById('accept-btn').disabled =
+    false;
+
+  document.getElementById('reject-btn').disabled =
+    false;
+
+  document.querySelectorAll('.reason-btn').forEach(btn=>{
+    btn.disabled = false;
+  });
+
+  currentStudent = null;
+  currentRFID = '';
+  currentScanType = '';
+
+  buf = '';
+
+  clearTimeout(tmr);
+
+  inp.value = '';
+
+  busy = false;
+
+  inp.focus();
+}
+
+
+/* SHOW / HIDE */
+function show(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.style.display=(id==='idle-box'||id==='student-card'||id==='error-card')?'flex':'block';
+}
+
+function hide(id){
+
+  document.getElementById(id).style.display =
+    'none';
+}
+
+</script>
+
+</body>
+</html>
